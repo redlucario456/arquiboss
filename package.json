@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server/app.js",
-    "build": "cd client && npm install && npm run build"
+    "build": "cd client && chmod +x node_modules/.bin/vite && npm run build"
   },
   "keywords": [
     "arquitectura",
