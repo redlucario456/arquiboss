@@ -6,7 +6,6 @@ import Weather from './components/Weather';
 import ContactForm from './components/ContactForm';
 import ProjectCard from './components/ProjectCard';
 
-
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [proyectos, setProyectos] = useState([]);
@@ -14,7 +13,8 @@ function App() {
     const [yoshi, setYoshi] = useState(false);
     const [proyectoAEditar, setProyectoAEditar] = useState(null);
 
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // ✅ CORREGIDO PARA PRODUCCIÓN Y LOCAL
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
     useEffect(() => {
         fetchContenido();
@@ -23,10 +23,12 @@ function App() {
         const handleKeyDown = (e) => {
             keys.push(e.key);
             if (keys.length > 4) keys.shift();
+
             if (keys.join('') === "ArrowUpArrowUpArrowDownArrowDown") {
                 setYoshi(true);
                 Swal.fire({ title: '🦖 ¡Yoshi Mode!', timer: 1000, showConfirmButton: false });
             }
+
             if (e.key === 'Escape') {
                 setYoshi(false);
                 setProyectoAEditar(null);
@@ -35,7 +37,7 @@ function App() {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [token]); 
+    }, [token]);
 
     const fetchContenido = async () => {
         try {
@@ -49,20 +51,22 @@ function App() {
                 const resMensajes = await fetch(`${API_BASE_URL}/api/mensajes?t=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
                 if (resMensajes.ok) {
                     const datosMensajes = await resMensajes.json();
                     setMensajes(datosMensajes);
                 }
             }
+
         } catch (error) {
-            console.error("Error cargando contenido ArquiBOSS:", error);
+            console.error("Error cargando contenido:", error);
         }
     };
 
     const borrarElemento = async (id, esMensaje = false) => {
         const result = await Swal.fire({
             title: esMensaje ? '¿Eliminar consulta?' : '¿Demoler proyecto?',
-            text: "Esta acción eliminará el registro permanentemente de la base de datos.",
+            text: "Esta acción eliminará el registro permanentemente.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ff4757',
@@ -75,13 +79,12 @@ function App() {
 
         if (result.isConfirmed) {
             const endpoint = esMensaje ? 'mensajes' : 'proyectos';
-            
+
             try {
-                // ✅ AGREGAMOS EL TOKEN AL FETCH DE ELIMINACIÓN
                 const res = await fetch(`${API_BASE_URL}/api/${endpoint}/${id}`, {
                     method: 'DELETE',
                     headers: { 
-                        'Authorization': `Bearer ${token}`, // Llave de acceso
+                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -89,12 +92,11 @@ function App() {
                 if (res.ok) {
                     await Swal.fire({
                         title: '¡Eliminado!',
-                        text: 'El registro ha sido removido.',
                         icon: 'success',
                         timer: 1500,
                         showConfirmButton: false
                     });
-                    fetchContenido(); 
+                    fetchContenido();
                 } else {
                     const errorData = await res.json();
                     throw new Error(errorData.error || "Error al eliminar");
@@ -120,7 +122,8 @@ function App() {
     return (
         <div className="App">
             <header>
-                <h1 id="mainTitle" style={{ color: yoshi ? '#44af35' : 'white' }}>ArquiBOSS</h1>
+                <h1 style={{ color: yoshi ? '#44af35' : 'white' }}>ArquiBOSS</h1>
+
                 {!token ? (
                     <Link to="/login" className="auth-link"> Acceso Admin </Link>
                 ) : (
@@ -133,66 +136,52 @@ function App() {
             <Weather />
 
             {token && (
-                <div id="seccionMensajesAdmin">
-                    <h2><i className="fas fa-envelope-open-text"></i> Consultas de Clientes</h2>
-                    <div id="contenedorMensajes">
+                <div>
+                    <h2>Consultas de Clientes</h2>
+                    <div>
                         {mensajes.length > 0 ? mensajes.map(m => (
-                            <div key={m.id} className="mensaje-card">
-                                <div className="mensaje-texto">
-                                    <strong>De: {m.remitente}</strong> 
-                                    <span style={{color: '#aaa', fontSize: '0.8em', marginLeft: '10px'}}>{m.email}</span>
-                                    <p>{m.contenido}</p>
-                                </div>
-                                <button 
-                                    onClick={() => borrarElemento(m.id, true)} 
-                                    className="btn-delete-mini"
-                                    title="Eliminar mensaje"
-                                >
+                            <div key={m.id}>
+                                <strong>{m.remitente}</strong>
+                                <p>{m.contenido}</p>
+                                <button onClick={() => borrarElemento(m.id, true)}>
                                     Eliminar
                                 </button>
                             </div>
-                        )) : <p className="no-data">Buzón de entrada despejado.</p>}
+                        )) : <p>Sin mensajes</p>}
                     </div>
                 </div>
             )}
 
-            <section id="proyectos">
-                <h2>Portafolio de Proyectos</h2>
-                <div className="proyectos-grid">
+            <section>
+                <h2>Proyectos</h2>
+                <div>
                     {proyectos.length > 0 ? proyectos.map(p => (
                         <ProjectCard 
-                            key={p.id} 
-                            proyecto={p} 
-                            isAdmin={!!token} 
+                            key={p.id}
+                            proyecto={p}
+                            isAdmin={!!token}
                             onRefresh={fetchContenido}
-                            onDelete={() => borrarElemento(p.id, false)}
-                            onEdit={() => {
-                                setProyectoAEditar(p);
-                                document.getElementById('form-container').scrollIntoView({ behavior: 'smooth' });
-                            }}
+                            onDelete={() => borrarElemento(p.id)}
+                            onEdit={() => setProyectoAEditar(p)}
                         />
-                    )) : <p className="no-data">🏗️ No hay obras registradas.</p>}
+                    )) : <p>No hay proyectos</p>}
                 </div>
             </section>
 
-            <div id="form-container">
-                <ContactForm 
-                    isAdmin={!!token} 
-                    onRefresh={fetchContenido} 
-                    editData={proyectoAEditar} 
-                    setEditData={setProyectoAEditar}
-                    token={token} // Pasamos el token al formulario también
-                />
-            </div>
+            <ContactForm 
+                isAdmin={!!token}
+                onRefresh={fetchContenido}
+                editData={proyectoAEditar}
+                setEditData={setProyectoAEditar}
+                token={token}
+            />
 
             {yoshi && (
-                <div id="yoshi-egg">
-                    <img src="https://media.giphy.com/media/Z6f79Ewt6L_t6/giphy.gif" alt="Yoshi" />
-                </div>
+                <img src="https://media.giphy.com/media/Z6f79Ewt6L_t6/giphy.gif" alt="yoshi" />
             )}
 
             <footer>
-                <p>&copy; 2026 ArquiBOSS - Ingeniería y Arquitectura de Alto Nivel</p>
+                <p>© 2026 ArquiBOSS</p>
             </footer>
         </div>
     );

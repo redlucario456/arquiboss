@@ -1,33 +1,55 @@
-const express = require('express'); //
-const router = express.Router(); //
-const Usuario = require('../models/usuario'); //
-const jwt = require('jsonwebtoken'); //
+const express = require('express');
+const router = express.Router();
+const Usuario = require('../models/usuario');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// Aquí empieza lo que pegaste antes:
-router.post('/login', async (req, res) => {
-    const { username, password } = req.body; 
-    
-    try {
-        const usuario = await Usuario.findOne({ 
-            where: { 
-                username: username, 
-                password: password 
-            } 
-        });
+// REGISTRO
+router.post('/register', async (req, res) => {
+  try {
+    const { nombre, correo, password } = req.body;
 
-        if (!usuario) {
-            return res.status(401).json({ success: false, message: "Datos incorrectos" });
-        }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        const secret = process.env.JWT_SECRET || 'clave_secreta_provisional';
-        const token = jwt.sign({ id: usuario.id }, secret, { expiresIn: '2h' });
+    const nuevoUsuario = await Usuario.create({
+      nombre,
+      correo,
+      password: hashedPassword
+    });
 
-        res.json({ success: true, token });
-
-    } catch (err) { 
-        console.error("Error en login:", err);
-        res.status(500).json({ success: false, message: err.message }); 
-    }
+    res.json(nuevoUsuario);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-module.exports = router; //
+// LOGIN
+router.post('/login', async (req, res) => {
+  try {
+    const { correo, password } = req.body;
+
+    const usuario = await Usuario.findOne({ where: { correo } });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const validPassword = await bcrypt.compare(password, usuario.password);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    const token = jwt.sign(
+      { id: usuario.id },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1h' }
+    );
+
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
